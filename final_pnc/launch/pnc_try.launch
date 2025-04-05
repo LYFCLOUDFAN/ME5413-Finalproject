@@ -1,0 +1,68 @@
+<launch>
+
+  <!-- 是否启用键盘遥控 -->
+  <arg name="enable_teleop" default="false" />
+
+  <group if="$(arg enable_teleop)">
+    <node name="teleop_twist_keyboard" pkg="teleop_twist_keyboard" type="teleop_twist_keyboard.py"
+      output="screen" respawn="false">
+      <param name="repeat_rate" type="double" value="10.0" />
+    </node>
+  </group>
+
+    <!-- 选择全局和局部规划器 -->
+    <arg name="global_planner" value="navfn/NavfnROS" />
+    <arg name="local_planner" value="teb" />
+    <arg name="local_replanner" value="navfn/NavfnROS" />
+    <arg name="use_move_base_local" default="$(eval arg('local_planner') == 'teb' and 'true' or 'false')" />
+
+  <!-- 启动 move_base -->
+  <node pkg="move_base" type="move_base" respawn="true" name="move_base" output="screen">
+
+    <!-- 载入地图和导航参数 -->
+    <rosparam file="$(find final_pnc)/config/map_params/costmap_common_params.yaml" command="load" ns="global_costmap" />
+    <rosparam file="$(find final_pnc)/config/map_params/costmap_common_params.yaml" command="load" ns="local_costmap" />
+    <rosparam file="$(find final_pnc)/config/map_params/local_costmap_params.yaml" command="load" />
+    <rosparam file="$(find final_pnc)/config/map_params/global_costmap_params.yaml" command="load" />
+    <rosparam file="$(find final_pnc)/config/nav_params/move_base.yaml" command="load" />
+
+    <!-- 设定规划器 -->
+    <param name="base_global_planner" type="string" value="$(arg global_planner)" />
+    <rosparam file="$(find final_pnc)/config/nav_params/global_planner.yaml" command="load" />
+    
+    <rosparam file="$(find final_pnc)/config/nav_params/teb.yaml" command="load" />
+    <param name="base_local_planner" value="teb_local_planner/TebLocalPlannerROS" />
+
+    <remap from="map" to="/map" />
+
+  </node>
+
+  <!-- 启动局部路径规划（如果启用） -->
+  <group ns="move_base_local" if="$(arg use_move_base_local)">
+      <node pkg="move_base" type="move_base" respawn="false" name="move_base_local" output="screen">
+
+        <rosparam file="$(find final_pnc)/config/map_params_local/costmap_common_params.yaml" command="load" ns="global_costmap" />
+        <rosparam file="$(find final_pnc)/config/map_params_local/costmap_common_params.yaml" command="load" ns="local_costmap" />
+        <rosparam file="$(find final_pnc)/config/map_params_local/local_costmap_params.yaml" command="load" />
+        <rosparam file="$(find final_pnc)/config/map_params_local/global_costmap_params.yaml" command="load" />
+
+        <rosparam file="$(find final_pnc)/config/nav_params/teb.yaml" command="load" />
+        <param name="base_local_planner" value="teb_local_planner/TebLocalPlannerROS" />
+
+        <param name="base_global_planner" type="string" value="$(arg local_replanner)" />
+        <rosparam file="$(find final_pnc)/config/nav_params/global_planner.yaml" command="load" />
+        
+        <remap from="map" to="/map" />
+      </node>
+  </group>
+
+
+  <!-- 启动 Rviz（用于手动选择 目标点） -->
+  <node type="rviz" name="rviz" pkg="rviz" args="-d $(find final_pnc)/config/navigation.rviz"
+    output="log" respawn="false" launch-prefix="bash -c 'sleep 0; $0 $@';" />
+
+  <!-- 启动 Python 脚本，发送多个目标点 -->
+  <node name="multi_group_navigator" pkg="me5413_world" type="state_machine.py"
+    output="screen" respawn="false" launch-prefix="bash -c 'sleep 5; $0 $@';"  /> 
+    
+</launch>

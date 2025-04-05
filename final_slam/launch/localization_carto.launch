@@ -1,0 +1,37 @@
+<launch>
+  <param name="use_sim_time" value="true" />
+
+  <arg name="enable_ekf" default="$(optenv ENABLE_EKF true)" />
+
+
+  <!-- Run the map server -->
+  <arg name="map_file" default="$(find final_slam)/maps/2d.yaml" />
+  <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" />
+
+
+  <!-- <node pkg="robot_localization" type="navsat_transform_node" name="navsat" respawn="true">
+    <param name="frequency" value="40" />
+    <param name="broadcast_utm_transform" value="false" />
+    <param name="use_odometry_yaw" value="false" />
+    <remap from="gps/fix" to="navsat/fix" />
+  </node>
+  <node pkg="final_slam" type="fix_gps_odom.py" name="fix_gps_odom" output="screen" /> -->
+
+  <group unless="$(arg enable_ekf)">
+    <node pkg="final_slam" type="get_gt_odom.py" name="get_gt_odom" output="screen" />
+  </group>
+
+  <!-- Launch Cartographer -->
+  <include file="$(find final_slam)/launch/ME5413_final_localization_2d.launch">
+  </include>
+
+  <node pkg="tf" type="static_transform_publisher" name="world2map" args="0 0 0 0 0 0 world map 10" />
+
+  <node name="pose2odom" pkg="final_slam" type="pose2odom.py" output="screen" />
+
+
+  <!-- Launch Rviz with our settings -->
+  <!-- <node type="rviz" name="rviz" pkg="rviz" args="-d $(find final_slam)/rviz/gmapping.rviz"
+    output="log" respawn="true" /> -->
+
+</launch>
